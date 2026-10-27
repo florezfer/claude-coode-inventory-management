@@ -14,11 +14,17 @@ All backend tests must be placed in `tests/backend/`:
 ```
 tests/backend/
 ├── conftest.py           # Shared fixtures and test client setup
-├── test_inventory.py     # Inventory endpoint tests
-├── test_orders.py        # Orders endpoint tests
-├── test_dashboard.py     # Dashboard endpoint tests
-└── test_misc_endpoints.py # Other endpoint tests
+├── test_inventory.py     # Inventory endpoint tests (10 tests)
+├── test_dashboard.py     # Dashboard endpoint tests (13 tests)
+├── test_misc_endpoints.py # Demand, backlog, spending, root (18 tests)
+├── test_purchase_orders.py # Purchase order endpoint tests (24 tests)
+└── test_restocking.py     # Restocking endpoint tests (32 tests)
 ```
+
+97 tests in total. Note there is **no `test_orders.py`** — the orders endpoints
+(`GET /api/orders`, `GET /api/orders/{order_id}`, and their filtering) are
+currently untested. Create that file when adding coverage for them; a
+`sample_order` fixture already exists in `conftest.py`.
 
 ## File Organization
 
@@ -404,25 +410,34 @@ assert abs(calculated - expected) < 0.01
 
 ## Running Tests
 
+Run from the `tests/` directory. There is no `pyproject.toml` there, so pytest
+must be pointed at the server project with `--project ../server` — a plain
+`uv run pytest` fails with `Failed to spawn: pytest`.
+
 ```bash
+cd tests
+
 # Run all backend tests
-pytest tests/backend/
+uv run --project ../server pytest
 
 # Run specific test file
-pytest tests/backend/test_orders.py
+uv run --project ../server pytest backend/test_inventory.py
 
 # Run specific test class
-pytest tests/backend/test_orders.py::TestOrdersEndpoints
+uv run --project ../server pytest backend/test_inventory.py::TestInventoryEndpoints
 
 # Run specific test method
-pytest tests/backend/test_orders.py::TestOrdersEndpoints::test_get_all_orders
+uv run --project ../server pytest backend/test_inventory.py::TestInventoryEndpoints::test_get_all_inventory
 
-# Run with verbose output
-pytest tests/backend/ -v
+# Run tests matching a name
+uv run --project ../server pytest -k low_stock
 
 # Run with coverage
-pytest tests/backend/ --cov=server
+uv run --project ../server pytest --cov=../server
 ```
+
+`pytest.ini` already sets `-v --strict-markers --tb=short` and
+`testpaths = backend`, so `-v` and an explicit path are unnecessary.
 
 ## Example: Complete Test File Template
 

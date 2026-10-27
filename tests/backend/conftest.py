@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 server_path = Path(__file__).parent.parent.parent / "server"
 sys.path.insert(0, str(server_path))
 
-from main import app
+from main import app, purchase_orders, restocking_orders
 
 
 @pytest.fixture
@@ -19,6 +19,33 @@ def client():
     """Create a test client for the FastAPI application."""
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture(autouse=True)
+def reset_purchase_orders():
+    """Isolate tests that create purchase orders.
+
+    Purchase orders are held in a module-level list rather than a database,
+    so anything a test POSTs would otherwise leak into every later test -
+    including the backlog tests, which read has_purchase_order off it.
+    """
+    original = list(purchase_orders)
+    yield
+    purchase_orders.clear()
+    purchase_orders.extend(original)
+
+
+@pytest.fixture(autouse=True)
+def reset_restocking_orders():
+    """Isolate tests that submit restocking orders.
+
+    Same module-level list problem as purchase orders - a submitted order
+    would otherwise persist into every later test.
+    """
+    original = list(restocking_orders)
+    yield
+    restocking_orders.clear()
+    restocking_orders.extend(original)
 
 
 @pytest.fixture

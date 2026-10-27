@@ -73,15 +73,27 @@ class TestDemandEndpoints:
         # Check for the new items we added
         skus = [item["item_sku"] for item in data]
 
-        # Should have Temperature Sensor Module and Logic Controller Board
-        assert "SNR-420" in skus, "Missing Temperature Sensor Module"
-        assert "CTL-330" in skus, "Missing Logic Controller Board"
+        # Should have the 8-bit Microcontroller and Proximity Sensor
+        assert "MCU-401" in skus, "Missing 8-bit Microcontroller"
+        assert "PRX-204" in skus, "Missing Proximity Sensor"
 
         # Verify they are marked as stable
         for item in data:
-            if item["item_sku"] in ["SNR-420", "CTL-330"]:
+            if item["item_sku"] in ["MCU-401", "PRX-204"]:
                 assert item["trend"].lower() == "stable", \
                     f"New item {item['item_name']} should have stable trend"
+
+    def test_demand_forecast_skus_exist_in_inventory(self, client):
+        """Every forecast SKU must resolve to an inventory item.
+
+        Restocking joins the forecast to inventory for cost and category, so a
+        forecast for a SKU that isn't stocked cannot be acted on.
+        """
+        forecasts = client.get("/api/demand").json()
+        inventory_skus = {item["sku"] for item in client.get("/api/inventory").json()}
+
+        orphans = [f["item_sku"] for f in forecasts if f["item_sku"] not in inventory_skus]
+        assert orphans == [], f"Forecast SKUs missing from inventory: {orphans}"
 
 
 class TestBacklogEndpoints:
