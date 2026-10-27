@@ -85,7 +85,18 @@ Server side, `main.py` has two helpers:
 Beyond UI strings, `useI18n` also translates data values at render time: `translateProductName`, `translateCustomerName`, `translateWarehouse` (the last maps city names and rewrites the `Warehouse X-##` prefix). Adding products, customers, or warehouses means adding entries to `client/src/locales/ja.js` or they render untranslated.
 
 ### Routing
-`client/src/main.js` registers seven routes: `/`, `/inventory`, `/orders`, `/demand`, `/restocking`, `/spending`, `/reports`. The nav in `App.vue` is hand-written `<router-link>`s, not a `v-for` over a list — adding a tab means editing both files plus a `nav.*` key in each locale.
+`client/src/main.js` registers seven routes: `/`, `/inventory`, `/orders`, `/demand`, `/restocking`, `/spending`, `/reports`. Navigation is driven by the `navItems` array at the top of `App.vue` (route, `nav.*` label key, SVG icon paths) — adding a tab means one entry there, a route in `main.js`, and a `nav.*` key in each locale.
+
+### Layout shell
+`App.vue` is a dark left sidebar plus a content column; there is no top nav.
+
+- **Sidebar** (`#0f172a`, 248px): brand, `navItems`, then a footer holding `ProfileMenu` and a collapse toggle. On desktop it collapses to a 72px icon rail; the choice persists in `localStorage['app-sidebar-collapsed']`. At ≤900px it becomes an off-canvas drawer opened from a hamburger in `.mobile-header`, closed by Escape, backdrop tap, or navigating.
+- **Top bar** (sticky): `FilterBar` plus `LanguageSwitcher`. `FilterBar` no longer owns any sticky/background styling. The language switcher is rendered twice — in the top bar on desktop (`.desktop-language`) and in the mobile header (`.mobile-language`) — with CSS showing one.
+- `ProfileMenu` takes a `collapsed` prop. It opens **upward** from the footer (to the right of the rail when collapsed), since the sidebar sits at the bottom-left.
+- Shell tokens are CSS variables on `:root` in `App.vue` (`--sidebar-width`, `--sidebar-bg`, `--accent`, …). Collapsing just redefines `--sidebar-width` on `.app`, which moves both the sidebar and the content margin. Colors inside the views are still hardcoded hex, not tokens.
+- Stacking: sidebar `z-index: 200`, top bar `100`, modals `2000`. Keep new overlays above 200.
+- The shared `.card`, `.stat-card`, `table` and `.badge` classes in `App.vue`'s unscoped `<style>` restyle every view at once; the views carry their own scoped overrides on top.
+- `Dashboard.vue`'s KPI row uses a container query: five cards need 1164px to sit in one row, so below that it lays out 3 + 2 rather than leaving an orphan.
 
 ## Restocking
 
@@ -118,7 +129,7 @@ Purchase orders are appended to the in-memory `purchase_orders` list and are **n
 
 `TasksModal.vue` (621 lines) is wired into `App.vue` and calls them.
 
-The two purchase-order methods in `api.js` now have routes, but no component calls them yet — wiring `BacklogDetailModal.vue` up to `createPurchaseOrder` is the remaining frontend work.
+The two purchase-order methods in `api.js` now have routes, but nothing calls them yet. `Dashboard.vue` already renders Create PO / View PO buttons, `openPOModal` handlers and a `<PurchaseOrderModal>` tag — but **`components/PurchaseOrderModal.vue` does not exist** (Vue logs `Failed to resolve component: PurchaseOrderModal` on every Dashboard load). Creating that modal, wired to `createPurchaseOrder` / `getPurchaseOrderByBacklogItem` and emitting `po-created`, is the remaining frontend work.
 
 ## Known inconsistencies
 
@@ -129,7 +140,7 @@ Verify against the code rather than trusting these docs:
 3. There is still **no `test_orders.py`**, so `/api/orders` and its four-way filtering — the most filter-sensitive surface in the API — is uncovered. A `sample_order` fixture sits unused in `conftest.py`.
 4. `client/src/views/Reports.vue` bypasses `api.js`, importing axios directly and hardcoding `http://localhost:8001` twice.
 5. Two currency conventions coexist: `formatCurrency()` (Dashboard, Spending, Restocking) converts USD→JPY, while the `currencySymbol` pattern (Orders, Inventory) swaps the symbol **without** converting the number.
-6. The `Reports` nav label in `App.vue` is hardcoded English rather than a `t()` key.
+6. `components/PurchaseOrderModal.vue` is imported by name in `Dashboard.vue`'s template but missing — see Purchase orders above.
 7. `server/pyproject.toml` requires Python `>=3.11`; `uv` resolves to whatever is newest locally.
 
 ## Key files
@@ -137,7 +148,7 @@ Verify against the code rather than trusting these docs:
 - `server/main.py` (538 lines) — every route, Pydantic model, and filter helper
 - `client/src/views/Dashboard.vue` (1271 lines) — largest file; KPIs, charts, modals
 - `client/src/api.js` — the only place axios is called
-- `client/src/App.vue` — global styles live here, not in a separate stylesheet
+- `client/src/App.vue` — the app shell (sidebar, top bar) and the shared global styles; there is no separate stylesheet
 
 ## Conventions
 

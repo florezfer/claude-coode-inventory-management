@@ -741,6 +741,7 @@ export default {
 
 .kpi-section {
   margin-bottom: 1.5rem;
+  container-type: inline-size;
 }
 
 .section-title {
@@ -756,6 +757,22 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1rem;
+}
+
+/* Five cards need 1164px to sit in one row. Below that, lay them out 3 + 2 on
+   a six-column grid so the last row is filled rather than leaving one orphan. */
+@container (min-width: 700px) and (max-width: 1163px) {
+  .kpi-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  .kpi-card:nth-child(-n + 3) {
+    grid-column: span 2;
+  }
+
+  .kpi-card:nth-child(n + 4) {
+    grid-column: span 3;
+  }
 }
 
 .kpi-card {

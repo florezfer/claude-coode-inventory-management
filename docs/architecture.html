@@ -351,7 +351,7 @@ footer{border-top:1px solid var(--border); padding-top:20px; color:var(--ink-3);
 
   <div class="note">
     <h3>Purchase orders have routes but no UI</h3>
-    <p><code>POST /api/purchase-orders</code> and <code>GET /api/purchase-orders/{backlog_item_id}</code> are implemented and tested, enforcing one purchase order per backlog item (409 on a second). The matching <code>api.js</code> methods still aren't called by any component — wiring <code>BacklogDetailModal.vue</code> to them is the remaining work.</p>
+    <p><code>POST /api/purchase-orders</code> and <code>GET /api/purchase-orders/{backlog_item_id}</code> are implemented and tested, enforcing one purchase order per backlog item (409 on a second). The matching <code>api.js</code> methods aren't called yet: <code>Dashboard.vue</code> already renders Create&nbsp;PO / View&nbsp;PO buttons and a <code>&lt;PurchaseOrderModal&gt;</code> tag, but <code>PurchaseOrderModal.vue</code> doesn't exist — building it is the remaining work.</p>
   </div>
 
   <div class="note">

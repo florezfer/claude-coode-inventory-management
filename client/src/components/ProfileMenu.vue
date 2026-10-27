@@ -1,5 +1,5 @@
 <template>
-  <div class="profile-menu">
+  <div class="profile-menu" :class="{ collapsed }">
     <button
       class="profile-button"
       @click="toggleDropdown"
@@ -81,6 +81,13 @@ import { useI18n } from '../composables/useI18n'
 const { currentUser, logout, getInitials } = useAuth()
 const { t } = useI18n()
 
+defineProps({
+  collapsed: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const isDropdownOpen = ref(false)
 const emit = defineEmits(['show-profile-details', 'show-tasks'])
 
@@ -121,21 +128,27 @@ const handleLogout = () => {
 }
 
 .profile-button {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.5rem 0.875rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  gap: 0.75rem;
+  padding: 0.5rem 0.625rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease;
   font-family: inherit;
+  text-align: left;
 }
 
 .profile-button:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.profile-button:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
 }
 
 .avatar {
@@ -150,28 +163,37 @@ const handleLogout = () => {
   font-weight: 600;
   font-size: 0.75rem;
   letter-spacing: 0.025em;
+  flex-shrink: 0;
 }
 
 .profile-name {
+  flex: 1;
+  min-width: 0;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #0f172a;
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* The menu opens upward from the sidebar footer, so the closed chevron points up */
 .chevron {
+  flex-shrink: 0;
   color: #64748b;
+  transform: rotate(180deg);
   transition: transform 0.2s ease;
 }
 
 .chevron-open {
-  transform: rotate(180deg);
+  transform: rotate(0deg);
 }
 
 .dropdown-menu {
   position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  min-width: 280px;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 260px;
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -265,6 +287,25 @@ const handleLogout = () => {
 
 .dropdown-item.logout:hover {
   background: #fef2f2;
+}
+
+@media (min-width: 901px) {
+  .profile-menu.collapsed .profile-name,
+  .profile-menu.collapsed .chevron {
+    display: none;
+  }
+
+  .profile-menu.collapsed .profile-button {
+    justify-content: center;
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  /* Open to the right of the rail instead of over it */
+  .profile-menu.collapsed .dropdown-menu {
+    bottom: 0;
+    left: calc(100% + 0.75rem);
+  }
 }
 
 .task-badge {

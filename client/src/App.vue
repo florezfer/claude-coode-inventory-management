@@ -1,45 +1,99 @@
 <template>
-  <div class="app">
-    <header class="top-nav">
-      <div class="nav-container">
-        <div class="logo">
-          <h1>{{ t('nav.companyName') }}</h1>
-          <span class="subtitle">{{ t('nav.subtitle') }}</span>
+  <div class="app" :class="{ 'sidebar-collapsed': collapsed, 'sidebar-open': mobileOpen }">
+    <aside id="app-sidebar" class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark" aria-hidden="true">C</div>
+        <div class="brand-text">
+          <span class="brand-name">{{ t('nav.companyName') }}</span>
+          <span class="brand-subtitle">{{ t('nav.subtitle') }}</span>
         </div>
-        <nav class="nav-tabs">
-          <router-link to="/" :class="{ active: $route.path === '/' }">
-            {{ t('nav.overview') }}
-          </router-link>
-          <router-link to="/inventory" :class="{ active: $route.path === '/inventory' }">
-            {{ t('nav.inventory') }}
-          </router-link>
-          <router-link to="/orders" :class="{ active: $route.path === '/orders' }">
-            {{ t('nav.orders') }}
-          </router-link>
-          <router-link to="/spending" :class="{ active: $route.path === '/spending' }">
-            {{ t('nav.finance') }}
-          </router-link>
-          <router-link to="/demand" :class="{ active: $route.path === '/demand' }">
-            {{ t('nav.demandForecast') }}
-          </router-link>
-          <router-link to="/restocking" :class="{ active: $route.path === '/restocking' }">
-            {{ t('nav.restocking') }}
-          </router-link>
-          <router-link to="/reports" :class="{ active: $route.path === '/reports' }">
-            Reports
-          </router-link>
-        </nav>
-        <LanguageSwitcher />
+      </div>
+
+      <nav class="sidebar-nav" :aria-label="t('nav.mainNavigation')">
+        <router-link
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          class="nav-link"
+          :class="{ active: $route.path === item.to }"
+          :title="collapsed ? t(item.label) : null"
+        >
+          <svg
+            class="nav-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path v-for="d in item.icon" :key="d" :d="d" />
+          </svg>
+          <span class="nav-label">{{ t(item.label) }}</span>
+        </router-link>
+      </nav>
+
+      <div class="sidebar-footer">
         <ProfileMenu
+          :collapsed="collapsed"
           @show-profile-details="showProfileDetails = true"
           @show-tasks="showTasks = true"
         />
+        <button
+          class="collapse-btn"
+          type="button"
+          :title="collapsed ? t('nav.expand') : t('nav.collapse')"
+          :aria-label="collapsed ? t('nav.expand') : t('nav.collapse')"
+          :aria-expanded="!collapsed"
+          @click="toggleCollapsed"
+        >
+          <svg
+            class="nav-icon collapse-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.75"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          <span class="nav-label">{{ collapsed ? t('nav.expand') : t('nav.collapse') }}</span>
+        </button>
       </div>
-    </header>
-    <FilterBar />
-    <main class="main-content">
-      <router-view />
-    </main>
+    </aside>
+
+    <div class="sidebar-backdrop" @click="mobileOpen = false"></div>
+
+    <div class="content-shell">
+      <div class="mobile-header">
+        <button
+          class="menu-btn"
+          type="button"
+          :aria-label="t('nav.openMenu')"
+          aria-controls="app-sidebar"
+          :aria-expanded="mobileOpen"
+          @click="mobileOpen = true"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true">
+            <path d="M3 6h18M3 12h18M3 18h18" />
+          </svg>
+        </button>
+        <span class="mobile-title">{{ t('nav.companyName') }}</span>
+        <LanguageSwitcher class="mobile-language" />
+      </div>
+
+      <div class="topbar">
+        <FilterBar />
+        <LanguageSwitcher class="desktop-language" />
+      </div>
+
+      <main class="main-content">
+        <router-view />
+      </main>
+    </div>
 
     <ProfileDetailsModal
       :is-open="showProfileDetails"
@@ -58,7 +112,8 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { api } from './api'
 import { useAuth } from './composables/useAuth'
 import { useI18n } from './composables/useI18n'
@@ -67,6 +122,27 @@ import ProfileMenu from './components/ProfileMenu.vue'
 import ProfileDetailsModal from './components/ProfileDetailsModal.vue'
 import TasksModal from './components/TasksModal.vue'
 import LanguageSwitcher from './components/LanguageSwitcher.vue'
+
+const SIDEBAR_STORAGE_KEY = 'app-sidebar-collapsed'
+
+// Feather-style 24x24 stroke icons, one path string per segment
+const navItems = [
+  { to: '/', label: 'nav.overview', icon: ['M3 3h7v7H3z', 'M14 3h7v7h-7z', 'M14 14h7v7h-7z', 'M3 14h7v7H3z'] },
+  { to: '/inventory', label: 'nav.inventory', icon: ['M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z', 'M3.27 6.96L12 12.01l8.73-5.05', 'M12 22.08V12'] },
+  { to: '/orders', label: 'nav.orders', icon: ['M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2', 'M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z', 'M9 12h6', 'M9 16h4'] },
+  { to: '/spending', label: 'nav.finance', icon: ['M12 1v22', 'M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'] },
+  { to: '/demand', label: 'nav.demandForecast', icon: ['M23 6l-9.5 9.5-5-5L1 18', 'M17 6h6v6'] },
+  { to: '/restocking', label: 'nav.restocking', icon: ['M23 4v6h-6', 'M1 20v-6h6', 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10', 'M20.49 15a9 9 0 0 1-14.85 3.36L1 14'] },
+  { to: '/reports', label: 'nav.reports', icon: ['M18 20V10', 'M12 20V4', 'M6 20v-6'] }
+]
+
+const readCollapsed = () => {
+  try {
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1'
+  } catch (err) {
+    return false
+  }
+}
 
 export default {
   name: 'App',
@@ -80,8 +156,11 @@ export default {
   setup() {
     const { currentUser } = useAuth()
     const { t } = useI18n()
+    const route = useRoute()
     const showProfileDetails = ref(false)
     const showTasks = ref(false)
+    const collapsed = ref(readCollapsed())
+    const mobileOpen = ref(false)
     const apiTasks = ref([])
 
     // Merge mock tasks from currentUser with API tasks
@@ -149,10 +228,39 @@ export default {
       }
     }
 
-    onMounted(loadTasks)
+    const toggleCollapsed = () => {
+      collapsed.value = !collapsed.value
+      try {
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed.value ? '1' : '0')
+      } catch (err) {
+        // Storage can be unavailable (private mode); the toggle still works this session
+      }
+    }
+
+    // The drawer is an overlay, so close it after navigating or on Escape
+    watch(() => route.path, () => {
+      mobileOpen.value = false
+    })
+
+    const handleKeydown = (event) => {
+      if (event.key === 'Escape') mobileOpen.value = false
+    }
+
+    onMounted(() => {
+      loadTasks()
+      window.addEventListener('keydown', handleKeydown)
+    })
+
+    onUnmounted(() => {
+      window.removeEventListener('keydown', handleKeydown)
+    })
 
     return {
       t,
+      navItems,
+      collapsed,
+      mobileOpen,
+      toggleCollapsed,
       showProfileDetails,
       showTasks,
       tasks,
@@ -165,6 +273,19 @@ export default {
 </script>
 
 <style>
+:root {
+  --sidebar-width: 248px;
+  --sidebar-bg: #0f172a;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-text: #94a3b8;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --sidebar-active: rgba(59, 130, 246, 0.18);
+  --accent: #3b82f6;
+  --surface-border: #e6eaf0;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-card-hover: 0 8px 20px rgba(15, 23, 42, 0.08);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -173,161 +294,391 @@ export default {
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: #f8fafc;
+  background: #f5f7fb;
   color: #1e293b;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 .app {
-  display: flex;
-  flex-direction: column;
   min-height: 100vh;
 }
 
-.top-nav {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+/* ---------- Sidebar ---------- */
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  background: var(--sidebar-bg);
+  z-index: 200;
+  transition: width 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 72px;
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.brand-mark {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #ffffff;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.brand-name {
+  color: #f8fafc;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.brand-subtitle {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.5rem 0.75rem;
+  overflow-y: auto;
+}
+
+.nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 8px;
+  color: var(--sidebar-text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.nav-link:hover {
+  background: var(--sidebar-hover);
+  color: #e2e8f0;
+}
+
+.nav-link.active {
+  background: var(--sidebar-active);
+  color: #ffffff;
+}
+
+.nav-link.active .nav-icon {
+  color: #60a5fa;
+}
+
+.nav-link.active::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: -0.75rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+}
+
+.nav-link:focus-visible,
+.collapse-btn:focus-visible,
+.menu-btn:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.nav-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--sidebar-border);
+}
+
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sidebar-text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.collapse-btn:hover {
+  background: var(--sidebar-hover);
+  color: #e2e8f0;
+}
+
+.collapse-icon {
+  transition: transform 0.2s ease;
+}
+
+.sidebar-collapsed .collapse-icon {
+  transform: rotate(180deg);
+}
+
+/* ---------- Content shell ---------- */
+
+.content-shell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+  margin-left: var(--sidebar-width);
+  transition: margin-left 0.2s ease;
+}
+
+.topbar {
   position: sticky;
   top: 0;
   z-index: 100;
-}
-
-.nav-container {
-  max-width: 1600px;
-  margin: 0 auto;
   display: flex;
   align-items: center;
-  padding: 0 2rem;
-  height: 70px;
+  gap: 1rem;
+  padding: 0.75rem 2rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid var(--surface-border);
+  backdrop-filter: blur(8px);
 }
 
-.nav-container > .nav-tabs {
-  margin-left: auto;
-  margin-right: 1rem;
-}
-
-.nav-container > .language-switcher {
-  margin-right: 1rem;
-}
-
-.logo {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-
-.logo h1 {
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: -0.025em;
-}
-
-.subtitle {
-  font-size: 0.813rem;
-  color: #64748b;
-  font-weight: 400;
-  padding-left: 0.75rem;
-  border-left: 1px solid #e2e8f0;
-}
-
-.nav-tabs {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.nav-tabs a {
-  padding: 0.625rem 1.25rem;
-  color: #64748b;
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 0.938rem;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.nav-tabs a:hover {
-  color: #0f172a;
-  background: #f1f5f9;
-}
-
-.nav-tabs a.active {
-  color: #2563eb;
-  background: #eff6ff;
-}
-
-.nav-tabs a.active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #2563eb;
+.mobile-header,
+.sidebar-backdrop {
+  display: none;
 }
 
 .main-content {
   flex: 1;
-  max-width: 1600px;
   width: 100%;
+  max-width: 1480px;
   margin: 0 auto;
-  padding: 1.5rem 2rem;
+  padding: 1.75rem 2rem 3rem;
 }
+
+/* Desktop: collapse to an icon rail */
+@media (min-width: 901px) {
+  .app.sidebar-collapsed {
+    --sidebar-width: 72px;
+  }
+
+  .sidebar-collapsed .brand-text,
+  .sidebar-collapsed .nav-label {
+    display: none;
+  }
+
+  .sidebar-collapsed .sidebar-brand {
+    justify-content: center;
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .sidebar-collapsed .nav-link,
+  .sidebar-collapsed .collapse-btn {
+    justify-content: center;
+    padding-right: 0;
+    padding-left: 0;
+  }
+}
+
+/* Mobile: the sidebar becomes an off-canvas drawer */
+@media (max-width: 900px) {
+  .sidebar {
+    width: 280px;
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+  }
+
+  .sidebar-open .sidebar {
+    visibility: visible;
+    transform: none;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+    transition-delay: 0s;
+  }
+
+  .content-shell {
+    margin-left: 0;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 190;
+    background: rgba(15, 23, 42, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .sidebar-open .sidebar-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #ffffff;
+    border-bottom: 1px solid var(--surface-border);
+  }
+
+  .menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--surface-border);
+    border-radius: 8px;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+  }
+
+  .menu-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .mobile-title {
+    font-size: 1rem;
+    font-weight: 650;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+  }
+
+  .topbar {
+    position: static;
+    padding: 0.75rem 1rem;
+  }
+
+  /* The header carries the language switcher on small screens */
+  .desktop-language {
+    display: none;
+  }
+
+  .mobile-language {
+    margin-left: auto;
+  }
+
+  .main-content {
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  .collapse-btn {
+    display: none;
+  }
+}
+
+/* ---------- Shared page styles (inherited by every view) ---------- */
 
 .page-header {
   margin-bottom: 1.5rem;
 }
 
 .page-header h2 {
-  font-size: 1.875rem;
+  font-size: 1.625rem;
   font-weight: 700;
   color: #0f172a;
-  margin-bottom: 0.375rem;
+  margin-bottom: 0.25rem;
   letter-spacing: -0.025em;
 }
 
 .page-header p {
   color: #64748b;
-  font-size: 0.938rem;
+  font-size: 0.9375rem;
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
 .stat-card {
-  background: white;
-  padding: 1.25rem;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
+  background: #ffffff;
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
 }
 
 .stat-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  border-color: #d5dbe5;
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
 }
 
 .stat-label {
   color: #64748b;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.625rem;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.5rem;
 }
 
 .stat-value {
-  font-size: 2.25rem;
+  font-size: 2rem;
   font-weight: 700;
   color: #0f172a;
   letter-spacing: -0.025em;
+  line-height: 1.15;
 }
 
 .stat-card.warning .stat-value {
@@ -347,11 +698,12 @@ body {
 }
 
 .card {
-  background: white;
-  border-radius: 10px;
-  padding: 1.25rem;
-  border: 1px solid #e2e8f0;
-  margin-bottom: 1.25rem;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 1.5rem;
 }
 
 .card-header {
@@ -359,15 +711,15 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  padding-bottom: 0.875rem;
-  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eef1f6;
 }
 
 .card-title {
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 650;
   color: #0f172a;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.015em;
 }
 
 .table-container {
@@ -381,25 +733,28 @@ table {
 
 thead {
   background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--surface-border);
 }
 
 th {
   text-align: left;
-  padding: 0.5rem 0.75rem;
+  padding: 0.625rem 1rem;
   font-weight: 600;
-  color: #475569;
-  font-size: 0.75rem;
+  color: #64748b;
+  font-size: 0.6875rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
   border-top: 1px solid #f1f5f9;
   color: #334155;
   font-size: 0.875rem;
+}
+
+tbody tr:first-child td {
+  border-top: 0;
 }
 
 tbody tr {
@@ -412,12 +767,12 @@ tbody tr:hover {
 
 .badge {
   display: inline-block;
-  padding: 0.313rem 0.75rem;
-  border-radius: 6px;
+  padding: 0.2rem 0.625rem;
+  border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .badge.success {
